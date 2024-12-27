@@ -11,3 +11,7 @@ cmake --build build
 cd build
 ctest
 ```
+
+# Code
+
+Code Convention: https://juce.com/feature/coding-standards/
