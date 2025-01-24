@@ -10,7 +10,7 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ), treeState(*this, nullptr, "PARAMETERS", createParameterLayout())
 {
 }
 
@@ -185,4 +185,24 @@ void AudioPluginAudioProcessor::setStateInformation (const void* data, int sizeI
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new AudioPluginAudioProcessor();
+}
+
+
+
+//==============================================================================
+
+juce::AudioProcessorValueTreeState::ParameterLayout AudioPluginAudioProcessor::createParameterLayout() {
+    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+    params.reserve(1);
+    
+    // Record Button
+    auto pRecord = (std::make_unique<juce::AudioParameterBool>("RECORD","Record", false));
+    params.push_back(std::move(pRecord));
+    
+    //StopRecording Button
+    auto pStop = (std::make_unique<juce::AudioParameterBool>("STOP","Stop", true));
+    params.push_back(std::move(pStop));
+    
+    return {params.begin(), params.end()};
+    
 }

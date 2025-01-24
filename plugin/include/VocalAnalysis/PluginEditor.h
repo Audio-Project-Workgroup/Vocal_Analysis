@@ -14,9 +14,15 @@ public:
     void resized() override;
 
 private:
+    juce::TextButton recordButton;
+    juce::TextButton stopButton;
+
+
+    
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     AudioPluginAudioProcessor& processorRef;
+    
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessorEditor)
 };
