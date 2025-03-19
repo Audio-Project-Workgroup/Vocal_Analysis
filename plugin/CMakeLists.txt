@@ -23,8 +23,14 @@ target_sources(${PROJECT_NAME}
     PRIVATE
         source/PluginEditor.cpp
         source/PluginProcessor.cpp
+        source/DSP/MPMPitchDetector.cpp
+        source/DSP/BasicPitchDetector.cpp
+        source/Importer/WavImporter.cpp
         ${INCLUDE_DIR}/PluginEditor.h
         ${INCLUDE_DIR}/PluginProcessor.h
+        ${INCLUDE_DIR}/DSP/MPMPitchDetector.h
+        ${INCLUDE_DIR}/DSP/BasicPitchDetector.h
+        ${INCLUDE_DIR}/Importer/WavImporter.h
 )
 
 # Sets the include directories of the plugin project.
@@ -42,6 +48,7 @@ target_link_libraries(${PROJECT_NAME}
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
+        juce::juce_audio_basics
 )
 
 # These definitions are recommended by JUCE.
