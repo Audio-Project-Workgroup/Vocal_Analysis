@@ -7,7 +7,11 @@ enable_testing()
 
 # Creates the test console application.
 add_executable(${PROJECT_NAME}
-    source/AudioProcessorTest.cpp)
+    source/AudioProcessorTest.cpp
+    source/DSP/MPMPitchDetectorTest.h
+    source/DSP/MPMPitchDetectorTest.cpp
+    source/DSP/BasicPitchDetectionTest.h
+    source/DSP/BasicPitchDetectionTest.cpp)
 
 # Sets the necessary include directories: ours, JUCE's, and googletest's.
 target_include_directories(${PROJECT_NAME}
