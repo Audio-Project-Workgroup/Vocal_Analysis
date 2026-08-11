@@ -6,21 +6,9 @@ project(Vocal_AnalysisTest)
 enable_testing()
 
 
-# Download and add AudioFile as a dependency for testing purposes
-include(FetchContent)
-
-FetchContent_Declare(
-    audiofile_github
-    GIT_REPOSITORY https://github.com/adamstark/AudioFile.git
-    GIT_TAG        master 
-)
-
-# Download and make the content available
-FetchContent_MakeAvailable(audiofile_github)
-
 add_executable(${PROJECT_NAME}
     source/AudioProcessorTest.cpp
-    source/BackendTest.cpp
+    source/DSP/PitchDetectorTest.cpp
 
 )
 
@@ -66,5 +54,5 @@ if (CMAKE_GENERATOR STREQUAL Xcode)
 # Source: https://discourse.cmake.org/t/googletest-crash-when-using-cmake-xcode-arm64/5766/8
   gtest_discover_tests(${PROJECT_NAME} DISCOVERY_MODE PRE_TEST)
 else()
-  gtest_discover_tests(${PROJECT_NAME} DISCOVERY_MODE PRE_TEST)
+  gtest_discover_tests(${PROJECT_NAME} DISCOVERY_MODE POST_BUILD)
 endif()

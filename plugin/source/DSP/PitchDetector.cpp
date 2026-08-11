@@ -1,12 +1,10 @@
-#include "VocalAnalysis/DSP/PitchDetector.h"
-
+#include <VocalAnalysis/DSP/PitchDetector.h>
 #include <cmath>
-#include <juce_dsp/juce_dsp.h>
 #include <vector>
 #include <stdlib.h>
 
 
-void YinAlgorithm::allocateBuffers(size_t maxBlockSize, double sampleRate)
+void PitchDetector::allocateBuffers(size_t maxBlockSize, double sampleRate)
 {
     mbufferSize = maxBlockSize;
     msampleRate = sampleRate;
@@ -14,102 +12,191 @@ void YinAlgorithm::allocateBuffers(size_t maxBlockSize, double sampleRate)
     cmndBuffer.assign(maxBlockSize, 0.0);
 }
 
-void YinAlgorithm::diff_function(const double *input, size_t size)
+void PitchDetector::diff_function(const double *input, size_t size)
 {
     size_t halfSize = size / 2;
-    // Calculate the difference function of signal x and lag tau
-    for (size_t tau = 0; tau < halfSize; tau++){
-        diffBuffer[tau] = 0;
-        for (size_t j = 0; j < size - tau; j++){
-            double delta = input[j] - input[j + tau];
-            diffBuffer[tau] += delta * delta;
+    if (halfSize == 0) return;
+
+    for (size_t tau = 0; tau < halfSize; ++tau)
+    {
+        double sum = 0.0;
+        for (size_t i = 0; i < halfSize; ++i)
+        {
+            double delta = input[i] - input[i + tau];
+            sum += delta * delta;
         }
+
+        diffBuffer[tau] = sum;
     }
 }
 
-void YinAlgorithm::cmndf(size_t size)
+void PitchDetector::cmndf(size_t size)
 {
     // Calculate the cumulative mean normalised difference function
-    
     cmndBuffer[0] = 1.0;
     double running_sum = 0.0;
 
-    for (size_t tau = 1; tau < size; tau++){
+    for (size_t tau = 1; tau < size; ++tau)
+    {
         running_sum += diffBuffer[tau];
-        cmndBuffer[tau] = diffBuffer[tau] * tau / running_sum;
-    }
-    
-}
-
- int YinAlgorithm::absolute_threshold(size_t size)
- {
-    // Search through the cumulative mean normalised difference function and find the first minimum that is below the threshold
-    
-    for (size_t tau = 1; tau < size; tau++){
-        if (cmndBuffer[tau] < YIN_THRESHOLD){
-            while (tau + 1 < size && cmndBuffer[tau + 1] < cmndBuffer[tau]){
-                tau++;
-            }
-            return static_cast<int>(tau);
+        if (running_sum > 0.0)
+        {
+            cmndBuffer[tau] = diffBuffer[tau] * static_cast<double>(tau) / running_sum;
+        }
+        else
+        {
+            cmndBuffer[tau] = 1.0;
         }
     }
-    return -1;
- }
+}
 
- float YinAlgorithm::parabolic_interpolation(size_t tau_estimate, size_t halfSize)
- {
-    size_t x0 = (tau_estimate < 1) ? tau_estimate : tau_estimate - 1;
-    size_t x2 = (tau_estimate + 1 < halfSize) ? tau_estimate + 1 : tau_estimate;
-    
-    if (x0 == tau_estimate || x2 == tau_estimate)
+
+int PitchDetector::absolute_threshold(size_t tauMin, size_t tauMax)
+{
+    size_t firstTau = 0;
+    bool found = false;
+
+    // Search for first minimum below threshold
+    for (size_t tau = tauMin; tau <= tauMax; tau++)
     {
-        return static_cast<float>(tau_estimate); // Returns lag value w/o interpolation if at the boundaries
+        if (cmndBuffer[tau] < YIN_THRESHOLD)
+        {
+            while (tau + 1 < tauMax && cmndBuffer[tau + 1] < cmndBuffer[tau])
+            {
+                tau++;
+            }
+            firstTau = tau; // Both are size_t, no casting needed
+            found = true;
+            break;
+        }
     }
+
+    if (found)
+    {
+        // Check if double lag (2 * tau) has a significantly lower dip (true fundamental)
+        size_t doubleTau = firstTau * 2;
+        if (doubleTau <= tauMax)
+        {
+            // If the double lag is substantially deeper, prefer the fundamental
+            if (cmndBuffer[doubleTau] < cmndBuffer[firstTau] * 0.5)
+            {
+                return static_cast<int>(doubleTau);
+            }
+        }
+        return static_cast<int>(firstTau);
+    }
+
+    // Fallback: search for absolute global minimum if no threshold hit
+    auto beginIt = cmndBuffer.begin() + static_cast<std::ptrdiff_t>(tauMin);
+    auto endIt = cmndBuffer.begin() + static_cast<std::ptrdiff_t>(tauMax + 1);
+    auto minElementIt = std::min_element(beginIt, endIt);
+
+    if (*minElementIt > 0.40) // Confidence gate
+    {
+        return -1; 
+    }
+
+    return static_cast<int>(std::distance(cmndBuffer.begin(), minElementIt));
+}
+
+
+
+ float PitchDetector::parabolic_interpolation(size_t tau_estimate, size_t tauMin, size_t tauMax)
+ {
+   
+    if (tau_estimate <= tauMin || tau_estimate >= tauMax) return static_cast<float>(tau_estimate); 
+  
+    size_t x0 = tau_estimate - 1;
+    size_t x2 = tau_estimate + 1;
+    
     
     double s0 = cmndBuffer[x0];
     double s1 = cmndBuffer[tau_estimate];
     double s2 = cmndBuffer[x2];
     
-    double denominator = 2.0 * (2.0 * s1 - s2 - s0);
-    if (std::abs(denominator) < 1e-5) return static_cast<float>(tau_estimate);
+    double denominator = 2.0 * (s0 + s2 - 2.0 * s1);
+    if (std::abs(denominator) < 1e-6) return static_cast<float>(tau_estimate);
     
-    return static_cast<float>(tau_estimate) + static_cast<float>((s2 - s0) / denominator);
+    double shift = (s0 - s2) / denominator;
+
+    return static_cast<float>(tau_estimate) + static_cast<float>(shift);
     
 }
 
-float YinAlgorithm::get_pitch(const double *input, size_t size)
+float PitchDetector::get_pitch(const double *input, size_t size)
 {
     // Get the pitch of the signal using the YIN algorithm
+    size = std::min(size, mbufferSize);
+    if (size == 0 || input == nullptr) return 0.0f; 
+
+
     size_t halfSize = size / 2;
+    double sumOfSquares = 0.0;
+
+    for (size_t i = 0; i < size; ++i)
+    {
+        sumOfSquares += input[i] * input[i];
+    }
+
+    const double SILENCE_THRESHOLD_RMS = 0.00316; //Checks RMS for silence
+ 
+    double rms = std::sqrt(sumOfSquares / static_cast<double>(size));
+    if (rms < SILENCE_THRESHOLD_RMS) return 0.0f; 
+
     diff_function(input, size);
     cmndf(halfSize);
-    int tau = absolute_threshold(halfSize);
 
-    if (tau != -1){
-        float refined_tau = parabolic_interpolation(static_cast<size_t>(tau), halfSize);
+    
 
-        if (refined_tau > 0.0f){
+    double fMin = 120.0;
+    double fMax = 1046.5;
 
-            return static_cast<float>(msampleRate) / refined_tau; // Convert lag to frequency
-        }
+    // Convert frequenciess to period lags (tau)
+    size_t tauMin = static_cast<size_t>(std::floor(msampleRate / fMax));
+    size_t tauMax = static_cast<size_t>(std::ceil(msampleRate / fMin));
+
+    // Clamp to valid arrays
+    tauMin = std::max(tauMin, static_cast<size_t>(2));         // Lag must be at least 2 for differences/interpolation
+    tauMax = std::min(tauMax, halfSize - 1);
+
+    int tau = absolute_threshold(tauMin, tauMax);
+
+    if (tau != -1)
+    {
+        float refined_tau = parabolic_interpolation(static_cast<size_t>(tau), tauMin, tauMax);
+
+        if (refined_tau > 0.0f) return static_cast<float>(msampleRate) / refined_tau; // Convert lag to frequency
+        
     } 
     
     return 0.0f; // No pitch found
     
 }
 
-float MidiConverter::hz_to_midi(float hz)
+
+float PitchDetector::hzToMIDI(float freq)
 {
-    // Convert frequency in Hz to MIDI note number
-    if (hz <= 0.0f) return 0.0f;
-    return 69 + 12 * log2(hz / 440.0);
+// Convert hz to MIDI
+    float midi_note = 69 + (12 * log2(freq/440.0f));
+    return std::round(midi_note);
+
+}
+
+juce::String PitchDetector::getMidiLetter(int midiNoteNumber)
+{
+
+    const juce::StringArray noteNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+
+    if (midiNoteNumber > 127 || midiNoteNumber < 0)
+    {
+        return "Pitch out of range"; 
+    }
+
+    int noteIndex = midiNoteNumber % 12;
+    int octave = (midiNoteNumber / 12) - 1;
+
+    return noteNames[noteIndex] + juce::String(octave);
+
 }
 
 
-// Placeholder for testing the Yin algorithm. Will be implemented using juce framework later in the plugin development process.
-std::string MidiConverter::midi_to_note_name(int midi_note){
-    static const std::vector<std::string> note_names = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-    int octave = (midi_note / 12) - 1;
-    int note_index = midi_note % 12;
-    return note_names[static_cast<std::size_t>(note_index)] + std::to_string(octave);
-}

@@ -1,6 +1,5 @@
-#include "VocalAnalysis/PluginProcessor.h"
-#include "VocalAnalysis/PluginEditor.h"
-
+#include <VocalAnalysis/PluginProcessor.h>
+#include <VocalAnalysis/PluginEditor.h>
 //==============================================================================
 AudioPluginAudioProcessor::AudioPluginAudioProcessor()
      : AudioProcessor (BusesProperties()
@@ -21,7 +20,7 @@ AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 //==============================================================================
 const juce::String AudioPluginAudioProcessor::getName() const
 {
-    return JucePlugin_Name;
+    return "VocalAnalysis";
 }
 
 bool AudioPluginAudioProcessor::acceptsMidi() const
