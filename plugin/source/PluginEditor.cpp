@@ -1,6 +1,5 @@
-#include "VocalAnalysis/PluginProcessor.h"
-#include "VocalAnalysis/PluginEditor.h"
-
+#include <VocalAnalysis/PluginProcessor.h>
+#include <VocalAnalysis/PluginEditor.h>
 //==============================================================================
 AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -48,7 +47,7 @@ void AudioPluginAudioProcessorEditor::resized()
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
     
-    //auto bounds = getLocalBounds();
+    auto bounds = getLocalBounds();
     const int componentSize {50};
     recordButton.setBounds(bounds.removeFromTop(400).removeFromLeft(100).withSizeKeepingCentre(componentSize, componentSize));
     stopButton.setBounds(100, 125, componentSize, componentSize);

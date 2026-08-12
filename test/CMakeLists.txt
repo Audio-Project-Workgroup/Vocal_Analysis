@@ -5,16 +5,32 @@ project(Vocal_AnalysisTest)
 # Signals to CMake that we want to run tests from this directory.
 enable_testing()
 
-# Creates the test console application.
+
 add_executable(${PROJECT_NAME}
-    source/AudioProcessorTest.cpp)
+    source/AudioProcessorTest.cpp
+    source/DSP/PitchDetectorTest.cpp
+
+)
+
 
 # Sets the necessary include directories: ours, JUCE's, and googletest's.
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../plugin/include
         ${JUCE_SOURCE_DIR}/modules
-        ${GOOGLETEST_SOURCE_DIR}/googletest/include)
+        ${GOOGLETEST_SOURCE_DIR}/googletest/include
+        
+       
+    SYSTEM PRIVATE
+        ${audiofile_github_SOURCE_DIR}
+)
+
+
+target_compile_definitions(${PROJECT_NAME}
+    PRIVATE 
+        TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test_data"
+)
+   
 
 # Thanks to the fact that we link against the gtest_main library, we don't have to write the main function ourselves.
 target_link_libraries(${PROJECT_NAME}
@@ -38,5 +54,5 @@ if (CMAKE_GENERATOR STREQUAL Xcode)
 # Source: https://discourse.cmake.org/t/googletest-crash-when-using-cmake-xcode-arm64/5766/8
   gtest_discover_tests(${PROJECT_NAME} DISCOVERY_MODE PRE_TEST)
 else()
-  gtest_discover_tests(${PROJECT_NAME})
+  gtest_discover_tests(${PROJECT_NAME} DISCOVERY_MODE POST_BUILD)
 endif()
